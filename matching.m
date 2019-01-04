@@ -24,35 +24,47 @@ addpath('/Users/bjmongol/Documents/ML/fragment_matching/SIFTflow');
 %   vii) siftflow distance 
 %   viii) how many fragments we have searched through (useful for testing
 %   robustness... just ignore this number!!!)
+score_file_name = 'scores_show_adiel.mat'; 
+if exist(score_file_name) ~= 0
+    load(score_file_name);
+else
+    scores_new_as_query = {};  
+end
 
-scores_new_as_query = {};  
 rankings = {};
 
 % list of old plates (for each fragment in each old plate we would like to
 % run it as a query and search through fragments in all new plates) 
 old_folders = dir(fullfile('DATA', 'OLD_SEGMENTED', 'fragment'));
-
-old_plate_name_list = {};
-for i=4:5 % indices of old plate names
-    old_plate_name_list{i-3,1} = old_folders(i).name;
-end
+idx = ismember({old_folders.name}, {'.', '..', '.DS_Store'});
+old_plate_name_list = old_folders(~idx);
+old_plate_name_list = {old_plate_name_list.name};
+old_plate_name_list = transpose(old_plate_name_list);
 
 % list of new plates (for each fragment in each old plate we would like to
 % run it as a query and search through fragments in all new plates) 
 % if we are running multiple 
-new_plate_name_list = {'NEW_SEGMENTED'};
+% new_folders = dir(fullfile('DATA', 'NEW_SEGMENTED'));
+% idx = ismember({new_folders.name}, {'.', '..', '.DS_Store'});
+% new_plate_name_list = new_folders(~idx);
+% new_plate_name_list = {new_plate_name_list.name};
+% new_plate_name_list = transpose(new_plate_name_list);
+
+new_plate_name_list = {'P387'};
+
 
 % iterate over new plates 
 for new_plate_num=1:length(new_plate_name_list)
     % current new plate 
     new_plate_name = new_plate_name_list{new_plate_num};
-    DATA_DIR = fullfile('DATA',new_plate_name);
+    DATA_DIR = fullfile('DATA','NEW_SEGMENTED', new_plate_name);
     % 'matching' pairs are stored here
     RES_DIR = fullfile('RESULTS','matches');
     
     % list of all images on the current new plate 
     new_templates_list = dir(fullfile(DATA_DIR, '*.png')); 
     
+    % TODO: change this!!!! to 1 
     for new_image_ind=1:length(new_templates_list)
         total_num_fragments = 0; 
         new_im_name = new_templates_list(new_image_ind).name;
@@ -95,11 +107,20 @@ for new_plate_num=1:length(new_plate_name_list)
 
         % resize the new fragment so that it is on a similar scale to
         % the old fragment
-        cropped_template_grayscale = imresize(cropped_template_grayscale,[size(cropped_template_grayscale,1)/3, ...
-            size(cropped_template_grayscale,2)/3.5]);
+        cropped_template_grayscale = imresize(cropped_template_grayscale,[size(cropped_template_grayscale,1)*1.4, ...
+            size(cropped_template_grayscale,2)*1.4]);
 
-        cropped_template_bw = imresize(cropped_template_bw,[size(cropped_template_bw,1)/3, ...
-            size(cropped_template_bw,2)/3.5]);
+        cropped_template_bw = imresize(cropped_template_bw,[size(cropped_template_bw,1)*1.4, ...
+            size(cropped_template_bw,2)*1.4]);
+        
+        new_frag_stats = regionprops(cropped_template_bw,'Centroid','Area','PixelIdxList','ConvexHull','Image','MajorAxisLength','MinorAxisLength','Orientation');
+        new_frag_major_axis = new_frag_stats.MajorAxisLength; 
+        new_frag_minor_axis = new_frag_stats.MinorAxisLength; 
+        
+        
+        figure; 
+        imshow(cropped_template_grayscale); 
+        close all; 
         
         scores_new_as_query(num_queries,:) = {new_im_name, new_plate_name, fullfile(DATA_DIR,new_im_name), {}};
         for old_plate_num=1:length(old_plate_name_list)
@@ -133,70 +154,48 @@ for new_plate_num=1:length(new_plate_name_list)
                 if size(size(cur_cc_grayscale),2) == 3
                     cur_cc_grayscale = rgb2gray(cur_cc_grayscale);
                 end
+                
+                tic;
+%                 rotation_amount = rotation_idx*90;
+%                 cur_cc_rotated = imrotate(cur_cc_grayscale, rotation_amount); 
 
                 % size distance
                 % this is scale test part
-                size1_distance = abs(size(cropped_template_grayscale,1) - size(cur_cc_grayscale,1));
-                size2_distance = abs(size(cropped_template_grayscale,2) - size(cur_cc_grayscale,2));
-
-                if (size1_distance > 500) % 300
-                    continue
-                end
-
-                if (size2_distance > 500) %300
-                    continue
-                end
-
-                cur_cc_bw =  cur_cc_grayscale > 0;
-                %shape test
-                cur_cc_bw = imresize(cur_cc_bw,size(cropped_template_grayscale));
-                cur_cc_grayscale = imresize(cur_cc_grayscale, size(cropped_template_grayscale));
-
-                cur_distance = sum(sum(abs(cropped_template_bw - cur_cc_bw)));
-                norm_constant = size(cropped_template_bw,1) * size(cropped_template_bw,2);
-                shape_distance = cur_distance/norm_constant;
-
-                if shape_distance > 0.3 % 0.3
-                    continue
-                end
-
-                % sift flow test, K is the size of our image when we're
-                % doing the SIFT-flow test. It was found that 100x100 pixels
-                % gives reasonable results and is also very fast to compute
-                % K = 512;
-                % K = 250;
-                K = 100; 
-
-                cropped_template_grayscale2 = double(imresize(cropped_template_grayscale,[K,K]));
-                cur_cc_grayscale2 = double(imresize(cur_cc_grayscale,[K,K]));
-
-                %         cropped_template_grayscale2 = double(cropped_template_grayscale);
-                %         cur_cc_grayscale2 = double(cur_cc_grayscale);
-                %
-                sift1 = mexDenseSIFT(cropped_template_grayscale2,cellsize,gridspacing,IsBoundary);
-                sift2 = mexDenseSIFT(cur_cc_grayscale2,cellsize,gridspacing,IsBoundary);
+%                 size1_distance = abs(size(cropped_template_grayscale,1) - size(cur_cc_rotated,1));
+%                 size2_distance = abs(size(cropped_template_grayscale,2) - size(cur_cc_rotated,2));
+% 
+%                 if (size1_distance > 500) % 300
+%                     continue
+%                 end
+% 
+%                 if (size2_distance > 500) %300
+%                     continue
+%                 end
                 
-                % calculate sift from old image to new image
-                tic;[vx,vy,energylist]=SIFTflowc2f(sift2,sift1,SIFTflowpara);toc
-
-                warpI2=warpImage(cur_cc_grayscale2,vx,vy);
-                warpI=warpImage(cropped_template_grayscale2,vx,vy);
-                %             figure;imshow(uint8(warpI2));
-
-                g = energylist.data;
-                siftflow_distance  = min(g);
-
-                montage_image = zeros([size(cur_cc_grayscale2),1,3]);
-                montage_image(:,:,:,1) = cropped_template_grayscale2;
-                montage_image(:,:,:,2) = cur_cc_grayscale2;
-                montage_image(:,:,:,3) = warpI2;
-                f = figure;
-                montage_image = uint8(montage_image);
-                montage(montage_image,'size', [1,3]);
-
-                title(sprintf('size1 dist: %f, size2 dist: %f, shape dist: %f, siftflow dist: %f',size1_distance, size2_distance, shape_distance, siftflow_distance));
-                saveas(f,fullfile(RES_DIR,strcat(new_im_name(1:end-4),sprintf('_%d_.png',old_image_ind))),'png');
-
+                % check minor and major axis length
+                
+                cur_cc_bw = cur_cc_grayscale > 0; 
+                old_frag_stats = regionprops(cur_cc_bw,'Centroid','Area','PixelIdxList','ConvexHull','Image','MajorAxisLength','MinorAxisLength','Orientation');
+                
+                old_frag_major_axis = old_frag_stats.MajorAxisLength; 
+                old_frag_minor_axis = old_frag_stats.MinorAxisLength; 
+                
+                if abs(old_frag_major_axis - new_frag_major_axis) > 200 || abs(old_frag_minor_axis - new_frag_minor_axis) > 200 
+                    continue
+                end
+                
+                % check ratio 
+                new_frag_ratio = new_frag_major_axis/new_frag_minor_axis; 
+                old_frag_ratio = old_frag_major_axis/old_frag_minor_axis; 
+                                
+                if old_frag_ratio < new_frag_ratio - 0.3 || old_frag_ratio > new_frag_ratio + 0.3
+                    continue
+                end
+                
+                % do SIFT alignment
+                
+                [siftflow_distance, dunno, duncare, rotation_amount] = align_SIFT(cropped_template_grayscale, cur_cc_grayscale, 1);
+                
                 % save the scores
                 % keep scores for each fragment being run as a query
                 % 4 cells -- 
@@ -216,26 +215,24 @@ for new_plate_num=1:length(new_plate_name_list)
 
                 % find which match number this is and append 
                 match_number = size(scores_new_as_query{query_number,4},1) + 1;
-                
-                % also keep track of fragment number -- when it was
-                % searched
+
                 scores_new_as_query{query_number,4}(match_number,:) = ...
                                                     {old_templates_list(old_image_ind).name,...
                                                     old_plate_name,...
                                                     fullfile(OLD_SEG_DIR,old_templates_list(old_image_ind).name),...
-                                                    size1_distance, size2_distance,...
-                                                    shape_distance,...
+                                                    0, 0,...
+                                                    0,...
                                                     siftflow_distance,...
-                                                    total_num_fragments};
-                
+                                                    total_num_fragments,...
+                                                    rotation_amount};
+
                 % we sort by the siftflow distance
                 scores_new_as_query{query_number,4} = sortrows(scores_new_as_query{query_number,4},7);
-                
-                % save the results
-                save('scores.mat', 'scores_new_as_query');
-                
+                toc
                 close all;
             end         
         end
+    % save the result
+    save(score_file_name, 'scores_new_as_query');
     end
 end
