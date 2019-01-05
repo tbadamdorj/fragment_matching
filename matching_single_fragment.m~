@@ -101,11 +101,18 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     
     numIterations = length(old_plate_name_list);
     obj = ProgressBar(numIterations, ...
-        'Title', strcat('Querying ', new_frag_name) ...
+        'Title', 'Querying ' ...
         );
 
     obj.setup([], [], []);
+    for iIteration = 1:numIterations
+        pause(1.5);
 
+        obj.step([], [], []);
+    end
+    obj.release();
+
+    
     for old_plate_num=1:length(old_plate_name_list)
         % current old plate 
         old_plate_name = old_plate_name_list{old_plate_num};
@@ -174,14 +181,10 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
                                                 rotation_amount};
 
             close all;
-        end
-        obj.step([], [], []);
+        end         
     end
     % sort by siftflow distance and then save the result 
     scores_new_as_query{1,4} = sortrows(scores_new_as_query{query_number,4},7);
     save(fullfile(SAVE_FOLDER, score_file_name), 'scores_new_as_query');
-    
-    % release progressbar object 
-    obj.release();
 end
 
