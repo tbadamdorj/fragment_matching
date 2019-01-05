@@ -6,8 +6,9 @@
 % SEG_DIR is the parent directory containing the folders for the models.
 % For each model folder, we have all the masks
 SEG_DIR = fullfile('DATA', 'OLD_UNSEGMENTED', 'masks');
-idx = ismember({SEG_DIR.name}, {'.', '..', '.DS_Store'});
-SEG_DIR = SEG_DIR(~idx);
+MODELS = dir(SEG_DIR);
+idx = ismember({MODELS.name}, {'.', '..', '.DS_Store'});
+MODELS = MODELS(~idx);
 
 % where unsegmented grayscale images are
 UNSEG_DIR = fullfile('DATA', 'OLD_UNSEGMENTED', 'plates');
@@ -18,9 +19,9 @@ RES_DIR = fullfile('DATA', 'OLD_SEGMENTED', 'fragment');
 % stores the masks so we can view the location later
 RES_DIR_FULLIMAGES = fullfile('DATA', 'OLD_SEGMENTED', 'plate');
 
-for model=1:size(SEG_DIR,1)
+for model=1:size(MODELS,1)
     % get list of all masks
-    masks = dir(fullfile(SEG_DIR, model, '*.png'));
+    masks = dir(fullfile(SEG_DIR, MODELS(model).name, '*.png'));
 
     % we keep connected components only if the overlap threshold between it and
     % the other connected components is greater than this when we are using the
