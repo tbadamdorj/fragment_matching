@@ -40,7 +40,7 @@ for model=1:size(MODELS,1)
         if size(gray_plate,3) == 3
             gray_plate = rgb2gray(gray_plate);
         end
-        mask = imread(fullfile(SEG_DIR, masks(ind).name));
+        mask = imread(fullfile(SEG_DIR, MODELS(model).name, masks(ind).name));
         if size(mask,3) == 3
             mask = rgb2gray(mask);
         end
