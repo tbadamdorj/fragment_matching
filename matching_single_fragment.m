@@ -15,12 +15,11 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     %   i) fragment name
     %   ii) plate name
     %   iii) full directory to image of fragment
-    %   iv) size distance (x axis) 
-    %   v) size distance (y axis)
-    %   vi) shape distance 
+    %   iv) size distance (major axis) 
+    %   v) size distance (minor axis)
+    %   vi) shape distance (after minimizing shape distance) 
     %   vii) siftflow distance 
-    %   viii) how many fragments we have searched through (useful for testing
-    %   robustness... just ignore this number!!!)
+    %   viii) degree of rotation
     
     % folder to save results to: 
     SAVE_FOLDER = 'RESULTS'; 
@@ -34,8 +33,8 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     new_frag_name = char(score_file_name(1));
     score_file_name = strcat(new_frag_name,'.mat');
     
-    if exist(score_file_name) ~= 0
-        load(score_file_name);
+    if exist(fullfile(SAVE_FOLDER, score_file_name)) ~= 0
+        load(fullfile(SAVE_FOLDER, score_file_name));
     else
         scores_new_as_query = {};  
     end
@@ -101,7 +100,7 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     
     numIterations = length(old_plate_name_list);
     obj = ProgressBar(numIterations, ...
-        'Title', strcat('Querying ', new_frag_name) ...
+        'Title', new_frag_name ...
         );
 
     obj.setup([], [], []);
@@ -111,8 +110,6 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
         old_plate_name = old_plate_name_list{old_plate_num};
 
         OLD_SEG_DIR = fullfile('DATA', 'OLD_SEGMENTED', 'fragment', old_plate_name);
-
-        fprintf('query %d/%d from %s to %s\n', new_image_ind, length(new_templates_list), new_plate_name, old_plate_name);
 
         %going over the old segmented templates
         % list of all old images on the current old plate 
@@ -130,8 +127,11 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
 
             old_frag_major_axis = old_frag_stats.MajorAxisLength; 
             old_frag_minor_axis = old_frag_stats.MinorAxisLength; 
-
-            if abs(old_frag_major_axis - new_frag_major_axis) > 300 || abs(old_frag_minor_axis - new_frag_minor_axis) > 300 
+            
+            major_axis_size_diff = abs(old_frag_major_axis - new_frag_major_axis); 
+            minor_axis_size_diff = abs(old_frag_minor_axis - new_frag_minor_axis); 
+            
+            if major_axis_size_diff > 300 || minor_axis_size_diff > 300 
                 continue
             end
 
@@ -144,7 +144,7 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
             end
 
             % do SIFT alignment
-            [siftflow_distance, dunno, duncare, rotation_amount] = align_SIFT(cropped_template_grayscale, cur_cc_grayscale, 1);
+            [siftflow_distance, shape_distance, dunno, duncare, rotation_amount] = align_SIFT(cropped_template_grayscale, cur_cc_grayscale, 1);
 
             % save the scores
             % keep scores for each fragment being run as a query
@@ -168,8 +168,9 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
                                                 {old_templates_list(old_image_ind).name,...
                                                 old_plate_name,...
                                                 fullfile(OLD_SEG_DIR,old_templates_list(old_image_ind).name),...
-                                                0, 0,...
-                                                0,...
+                                                major_axis_size_diff,... 
+                                                minor_axis_size_diff,...
+                                                shape_distance,...
                                                 siftflow_distance,...
                                                 rotation_amount};
 
@@ -178,7 +179,7 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
         obj.step([], [], []);
     end
     % sort by siftflow distance and then save the result 
-    scores_new_as_query{1,4} = sortrows(scores_new_as_query{query_number,4},7);
+    scores_new_as_query{1,4} = sortrows(scores_new_as_query{1,4},7);
     save(fullfile(SAVE_FOLDER, score_file_name), 'scores_new_as_query');
     
     % release progressbar object 

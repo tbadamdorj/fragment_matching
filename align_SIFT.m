@@ -1,4 +1,4 @@
-function [ siftflow_distance, cur_cc_rotated, cropped_template_grayscale, deg] = align_SIFT( new_img, old_img, new_processed)
+function [ siftflow_distance, shape_distance, cur_cc_rotated, cropped_template_grayscale, deg] = align_SIFT( new_img, old_img, new_processed)
     %align SIFT with correct orientation by minimizing the shape distance 
     % close all;
     % addpath to SIFTFLOW 
