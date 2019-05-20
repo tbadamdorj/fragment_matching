@@ -99,7 +99,8 @@ function [ siftflow_distance, shape_distance, cur_cc_rotated, cropped_template_g
     
     % imshow(cur_cc_rotated);
     
-    K = 100; 
+    % resize images to same size before aligning using SIFTflow
+    K = 250; 
 
     cropped_template_grayscale2 = double(imresize(cropped_template_grayscale,[K,K]));
     cur_cc_grayscale2 = double(imresize(cur_cc_rotated,[K,K]));
