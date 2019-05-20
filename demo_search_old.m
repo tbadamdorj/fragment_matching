@@ -11,4 +11,4 @@ old_plate_name_list = transpose(old_plate_name_list);
 
 img_path = 'B-279123.png';
 is_new_frag = 0; % because this is an old image 
-all_scores = matching_single_fragment(img_path, old_plate_name_list, is_new_frag);
+all_scores = matching_single_fragment(img_path, old_plate_name_list, 1, is_new_frag);

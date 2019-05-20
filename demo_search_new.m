@@ -12,4 +12,4 @@ old_plate_name_list = transpose(old_plate_name_list);
 img_path = 'B-505776_IR.png';
 is_new_frag = 1; % since this is a new fragment 
 
-all_scores = matching_single_fragment(img_path, old_plate_name_list, is_new_frag);
+all_scores = matching_single_fragment(img_path, old_plate_name_list, 1, is_new_frag);
