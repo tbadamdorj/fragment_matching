@@ -110,8 +110,10 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
     for old_plate_num=1:length(old_plate_name_list)
         % current old plate 
         old_plate_name = old_plate_name_list{old_plate_num};
-        fprintf('%d/%d: %s\n', old_plate_num, numIterations, old_plate_name);
-	tic;
+        
+        fprintf('%d/%d: %s<-->%s\n', old_plate_num, numIterations, new_frag_name, old_plate_name);
+        tic;
+
         OLD_SEG_DIR = fullfile('DATA', 'OLD_SEGMENTED', 'fragment', old_plate_name);
 
         %going over the old segmented templates
@@ -185,7 +187,9 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
 
             close all;
         end
+        
         toc
+
         % obj.step([], [], []);
         % sort by siftflow distance and then save the results after each plate
         if size(all_scores{1,4},1) ~= 0

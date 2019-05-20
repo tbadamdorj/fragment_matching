@@ -16,6 +16,8 @@ old_fragment_path = fullfile('DATA', 'OLD_QUERY', old_fragment_name);
 old_img = imread(old_fragment_path);
 old_plate_name = regexprep(old_fragment_name, '(.*).png', '$1'); % define here by just getting the name of the image without the extension
 
+fprintf('looking for PAM %s in new fragments\n\n', old_plate_name);
+
 % create a new "PAM" just with the name of the old image
 
 OLD_SEG_DIR = fullfile('DATA', 'OLD_SEGMENTED', 'fragment', old_plate_name);
@@ -36,6 +38,9 @@ PAM_list = {old_plate_name};
 % get list of all new plates
 % directory with new fragments 
 NEW_SEG_DIR = '/specific/disk1/home/nachumd/DSS/DSS_Fragments/fragments_nojp'; 
+
+fprintf('new fragments are in: %s\n\n', NEW_SEG_DIR);
+
 new_plates = dir(NEW_SEG_DIR);
 unwanted_idx = ismember({new_plates.name}, {'.', '..', '.DS_Store'});
 new_plates = new_plates(~unwanted_idx);
@@ -44,7 +49,7 @@ new_plates = new_plates(~unwanted_idx);
 % matching_single_fragment function, and concatenate to our existing
 % results
 for i=1:size(new_plates, 1)
-    fprintf('%d/%d\n', i, size(new_plates,1)); 
+    fprintf('\n\n%d/%d plates compared\n\n', i, size(new_plates,1)); 
     image_names = dir(fullfile(NEW_SEG_DIR, new_plates(i).name, '*.png'));
     for j=1:size(image_names, 1)
         % if it's a hidden file, skip it -- I don't know why but some images are hidden files
@@ -80,6 +85,7 @@ for i=1:size(new_plates, 1)
     end
 
     % save scores in RESULTS directory
+    fprintf('\n saving to %s\n', fullfile(RESULTS_DIR, strcat(old_plate_name, '.mat')));
     save(fullfile(RESULTS_DIR, strcat(old_plate_name, '.mat')), 'all_scores');
 end 
 end
