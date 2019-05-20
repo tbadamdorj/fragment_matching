@@ -1,5 +1,5 @@
 function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, save_file, is_new_frag)
-% matching_single_fragment Take path to single fragment, process new image
+% matching_single_fragment searches for image at fragment_path to all PAMs in PAM_list
 % and do everything and save the scores to the folder with a *_scores.mat
 % file where * is the name of the query fragment
 %   PAM_list is a cell of size Nx1 where N is the number of PAMs we would
@@ -20,7 +20,11 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
     %   vi) shape distance (after minimizing shape distance) 
     %   vii) siftflow distance 
     %   viii) degree of rotation
-    
+
+% save_file is set to 1 if we would like to save the file within the function
+% is_new_frag is set to 1 if our query is a new fragment (meaning we need to resize it) 
+% if we are running an old fragment as a query, then is_new_frag = 0
+
     % folder to save results to: 
     SAVE_FOLDER = 'RESULTS'; 
     
@@ -32,7 +36,13 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
     score_file_name = strsplit(score_file_name, '.');
     new_frag_name = char(score_file_name(1));
     score_file_name = strcat(new_frag_name,'.mat');
-    
+
+    if is_new_frag
+        fprintf('looking for new fragment %s in PAMs \n\n', new_frag_name);
+    else 
+        fprintf('looking for PAM fragment %s in PAMs \n\n', new_frag_name);
+    end    
+
     if exist(fullfile(SAVE_FOLDER, score_file_name)) ~= 0
         load(fullfile(SAVE_FOLDER, score_file_name));
     else
@@ -111,7 +121,7 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
         % current old plate 
         old_plate_name = old_plate_name_list{old_plate_num};
         
-        fprintf('%d/%d: %s<-->%s\n', old_plate_num, numIterations, new_frag_name, old_plate_name);
+        fprintf('%d/%d: %s <--> %s\n', old_plate_num, numIterations, new_frag_name, old_plate_name);
         tic;
 
         OLD_SEG_DIR = fullfile('DATA', 'OLD_SEGMENTED', 'fragment', old_plate_name);
@@ -135,13 +145,21 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
             if isempty(old_frag_stats)
                 continue
             end
+            
+            % here we do the size comparison by comparing between the lengths of the major axes of each image 
+            % to one another 
 
+            % we do the same for the minor axes of each image
             old_frag_major_axis = old_frag_stats.MajorAxisLength; 
             old_frag_minor_axis = old_frag_stats.MinorAxisLength; 
             
             major_axis_size_diff = abs(old_frag_major_axis - new_frag_major_axis); 
             minor_axis_size_diff = abs(old_frag_minor_axis - new_frag_minor_axis); 
             
+            % the pixel distance threshold was set to 300, but could be set 
+            % to a smaller number if the resizing is extremely accurate 
+            % i.e. if we are sure that an AxA size new image and an AxA 
+            % old image will be the same size in real life 
             if major_axis_size_diff > 300 || minor_axis_size_diff > 300 
                 continue
             end
@@ -150,11 +168,14 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
             new_frag_ratio = new_frag_major_axis/new_frag_minor_axis; 
             old_frag_ratio = old_frag_major_axis/old_frag_minor_axis; 
 
+            % we also check that the aspect ratios of the two fragments are similar enough 
             if old_frag_ratio < new_frag_ratio - 0.3 || old_frag_ratio > new_frag_ratio + 0.3
                 continue
             end
 
             % do SIFT alignment
+            % align_SIFT finds the correct orientation first by maximizing hamming distance 
+            % then it aligns the two fragments
             [siftflow_distance, shape_distance, dunno, duncare, rotation_amount] = align_SIFT(cropped_template_grayscale, cur_cc_grayscale, 1);
 
             % save the scores
@@ -195,7 +216,9 @@ function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, sav
         if size(all_scores{1,4},1) ~= 0
             all_scores{1,4} = sortrows(all_scores{1,4},7);
         end
+
         if save_file
+            fprintf('saving to %s\n\n', fullfile(SAVE_FOLDER, score_file_name));
             save(fullfile(SAVE_FOLDER, score_file_name), 'all_scores');
         end
     end
