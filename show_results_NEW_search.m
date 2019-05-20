@@ -17,6 +17,8 @@ img_paths = img_paths(rectos_indices);
 img_names = img_names(rectos_indices);
 
 % show 500 top results
+fprintf('results will be saved to %s', fullfile('DATA','OLD_QUERY_RESULTS', 'IMG_RESULTS'));
+
 for i=1:500
     copyfile(img_paths{i,1}, fullfile('DATA','OLD_QUERY_RESULTS', 'IMG_RESULTS', ...
     strcat(num2str(i), '_', img_names{i,1}, '.png')));
