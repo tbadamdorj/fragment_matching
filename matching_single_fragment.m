@@ -1,4 +1,4 @@
-function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, PAM_list)
+function [ all_scores ] = matching_single_fragment( fragment_path, PAM_list, save_file, is_new_frag)
 % matching_single_fragment Take path to single fragment, process new image
 % and do everything and save the scores to the folder with a *_scores.mat
 % file where * is the name of the query fragment
@@ -26,7 +26,7 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     
     % use the name of the image (without .jpg extension) as the name of our
     % mat file
-    score_file_name = strsplit(new_fragment_path, '/'); 
+    score_file_name = strsplit(fragment_path, '/'); 
     score_file_name = score_file_name(end);
     score_file_name = char(score_file_name); 
     score_file_name = strsplit(score_file_name, '.');
@@ -36,7 +36,7 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     if exist(fullfile(SAVE_FOLDER, score_file_name)) ~= 0
         load(fullfile(SAVE_FOLDER, score_file_name));
     else
-        scores_new_as_query = {};  
+        all_scores = {};  
     end
 
     % list of old plates (for each fragment in each old plate we would like to
@@ -45,7 +45,7 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     old_plate_name_list = PAM_list;
 
     % process the new image
-    template_im = rgb2gray(imread(new_fragment_path));
+    template_im = rgb2gray(imread(fragment_path));
     template_bw = template_im > 0; 
 
     template_stats = regionprops(template_bw,'Centroid','Area','PixelIdxList','ConvexHull','Image','MajorAxisLength','MinorAxisLength','Orientation');
@@ -77,11 +77,13 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
 
     % resize the new fragment so that it is on a similar scale to
     % the old fragment
-    cropped_template_grayscale = imresize(cropped_template_grayscale,[size(cropped_template_grayscale,1)*1.4, ...
-        size(cropped_template_grayscale,2)*1.4]);
+    if is_new_frag
+        cropped_template_grayscale = imresize(cropped_template_grayscale,[size(cropped_template_grayscale,1)*1.4, ...
+            size(cropped_template_grayscale,2)*1.4]);
 
-    cropped_template_bw = imresize(cropped_template_bw,[size(cropped_template_bw,1)*1.4, ...
-        size(cropped_template_bw,2)*1.4]);
+        cropped_template_bw = imresize(cropped_template_bw,[size(cropped_template_bw,1)*1.4, ...
+            size(cropped_template_bw,2)*1.4]);
+    end
 
     new_frag_stats = regionprops(cropped_template_bw,'Centroid','Area','PixelIdxList','ConvexHull','Image','MajorAxisLength','MinorAxisLength','Orientation');
     new_frag_major_axis = new_frag_stats.MajorAxisLength; 
@@ -93,22 +95,23 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
     % close all; 
 
     % data to excel easily (convert from mat file to excel file) 
-    scores_new_as_query(1,:) = {new_frag_name, new_fragment_path, new_fragment_path, {}};
+    all_scores(1,:) = {new_frag_name, fragment_path, fragment_path, {}};
     
     % TODO: add progressbar that shows how many fragments/plates 
     % (??? which one ???) we have yet to go through
     
     numIterations = length(old_plate_name_list);
-    obj = ProgressBar(numIterations, ...
-        'Title', new_frag_name ...
-        );
+    % obj = ProgressBar(numIterations, ...
+    %    'Title', new_frag_name ...
+    %    );
 
-    obj.setup([], [], []);
+    % obj.setup([], [], []);
 
     for old_plate_num=1:length(old_plate_name_list)
         % current old plate 
         old_plate_name = old_plate_name_list{old_plate_num};
-
+        fprintf('%d/%d: %s\n', old_plate_num, numIterations, old_plate_name);
+	tic;
         OLD_SEG_DIR = fullfile('DATA', 'OLD_SEGMENTED', 'fragment', old_plate_name);
 
         %going over the old segmented templates
@@ -119,11 +122,17 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
             if size(size(cur_cc_grayscale),2) == 3
                 cur_cc_grayscale = rgb2gray(cur_cc_grayscale);
             end
-
+            % fprintf(fullfile(OLD_SEG_DIR,old_templates_list(old_image_ind).name));
             % check minor and major axis length
-
+            
             cur_cc_bw = cur_cc_grayscale > 0; 
+
             old_frag_stats = regionprops(cur_cc_bw,'Centroid','Area','PixelIdxList','ConvexHull','Image','MajorAxisLength','MinorAxisLength','Orientation');
+
+            % check that we have a connected component
+            if isempty(old_frag_stats)
+                continue
+            end
 
             old_frag_major_axis = old_frag_stats.MajorAxisLength; 
             old_frag_minor_axis = old_frag_stats.MinorAxisLength; 
@@ -162,9 +171,9 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
 
             % query number
             % find which match number this is and append 
-            match_number = size(scores_new_as_query{1,4},1) + 1;
+            match_number = size(all_scores{1,4},1) + 1;
 
-            scores_new_as_query{1,4}(match_number,:) = ...
+            all_scores{1,4}(match_number,:) = ...
                                                 {old_templates_list(old_image_ind).name,...
                                                 old_plate_name,...
                                                 fullfile(OLD_SEG_DIR,old_templates_list(old_image_ind).name),...
@@ -176,13 +185,18 @@ function [ scores_new_as_query ] = matching_single_fragment( new_fragment_path, 
 
             close all;
         end
-        obj.step([], [], []);
+        toc
+        % obj.step([], [], []);
+        % sort by siftflow distance and then save the results after each plate
+        if size(all_scores{1,4},1) ~= 0
+            all_scores{1,4} = sortrows(all_scores{1,4},7);
+        end
+        if save_file
+            save(fullfile(SAVE_FOLDER, score_file_name), 'all_scores');
+        end
     end
-    % sort by siftflow distance and then save the result 
-    scores_new_as_query{1,4} = sortrows(scores_new_as_query{1,4},7);
-    save(fullfile(SAVE_FOLDER, score_file_name), 'scores_new_as_query');
     
     % release progressbar object 
-    obj.release();
+    % obj.release();
 end
 

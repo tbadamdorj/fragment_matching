@@ -2,9 +2,9 @@ function [ siftflow_distance, shape_distance, cur_cc_rotated, cropped_template_g
     %align SIFT with correct orientation by minimizing the shape distance 
     % close all;
     % addpath to SIFTFLOW 
-    addpath('/Users/bjmongol/Documents/ML/fragment_matching/SIFTflow/mexDiscreteFlow');
-    addpath('/Users/bjmongol/Documents/ML/fragment_matching/SIFTflow/mexDenseSIFT');
-    addpath('/Users/bjmongol/Documents/ML/fragment_matching/SIFTflow');
+    addpath('SIFTflow/mexDiscreteFlow');
+    addpath('SIFTflow/mexDenseSIFT');
+    addpath('SIFTflow');
 
     % SIFT-flow parameters
     cellsize=[1,3];
@@ -97,7 +97,7 @@ function [ siftflow_distance, shape_distance, cur_cc_rotated, cropped_template_g
     cur_cc_rotated = imrotate(cur_cc_grayscale, deg); 
     [cur_cc_bw, cur_cc_rotated] = choose_biggest_CC(cur_cc_rotated);
     
-    imshow(cur_cc_rotated);
+    % imshow(cur_cc_rotated);
     
     K = 100; 
 
@@ -107,9 +107,8 @@ function [ siftflow_distance, shape_distance, cur_cc_rotated, cropped_template_g
     %         cropped_template_grayscale2 = double(cropped_template_grayscale);
     %         cur_cc_grayscale2 = double(cur_cc_grayscale);
     %
-    sift1 = mexDenseSIFT(cropped_template_grayscale2,cellsize,gridspacing,IsBoundary);
     sift2 = mexDenseSIFT(cur_cc_grayscale2,cellsize,gridspacing,IsBoundary);
-
+    sift1 = mexDenseSIFT(cropped_template_grayscale2,cellsize,gridspacing,IsBoundary);
     % calculate sift from old image to new image
     [vx,vy,energylist]=SIFTflowc2f(sift2,sift1,SIFTflowpara);
 
